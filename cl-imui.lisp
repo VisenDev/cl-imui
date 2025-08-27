@@ -58,8 +58,11 @@
    )
   )
 
-(defclass container ()
-  ((root-x :initarg :root-x :initform 0 :accessor root-x :type fixnum)
+(defclass widget () ())
+
+(defclass widget/container (widget)
+  ((parent :initarg :parent :accessor parent :initform nil)
+   (root-x :initarg :root-x :initform 0 :accessor root-x :type fixnum)
    (root-y :initarg :root-y :initform 0 :accessor root-y :type fixnum)
    (min-width :initarg :min-width :initform 0 :accessor min-width :type fixnum)
    (max-width :initarg :max-width :initform #xFFFFFF :accessor max-width :type fixnum)
@@ -72,9 +75,74 @@
    (cmds :initform (make-vec 'cmd) :accessor cmds :type (vector cmd))
    )
   )
-(defclass container/row (container)
+(defclass widget/container/row (widget/container)
   ()
   )
+
+(define-condition container-bounds-exceeded (error) ())
+
+(defgeneric occupy (container width height))
+(defmethod occupy ((container widget/container/row) (width integer) (height integer))
+  (with-accessors ((mh max-height) (mw max-width) (uh used-height)
+                   (uw used-width) (x x) (y y))
+      container
+    (when (> height mh)
+      (signal 'container-bounds-exceeded)
+      )
+    (when (> height uh)
+      (setf uh height)
+      )
+    (when (> (+ uw width) mw)
+      (signal 'container-bounds-exceeded)
+      )
+    (incf uw width)
+    (incf x width)
+    )
+  )
+
+
+(defconstant +text-height+ 10)
+(defgeneric label (container text))
+(defmethod label ((container widget/container) (text string))
+  (let*
+      ((h +text-height+)
+       (w (* (length text) +text-height+))
+       (x (x container))
+       (y (y container))
+       )
+    (occupy container w h)
+    (vector-push-extend
+     (make-instance 'cmd/text :text text :x x :y y)
+     (cmds container))
+    )
+  )
+
+(declaim (ftype (function (widget/container) widget/container/row) construct-row)) 
+(defun construct-row (parent)
+  (make-instance 'widget/container/row :root-x (x parent) :root-y (y parent))
+  )
+(declaim (ftype (function (widget/container/row) (vector cmd))))
+(defun deconstruct-row (row)
+  (
+   
+
+(defmacro with-row (parent name &body body)
+  `(progn
+     (make-instance 'widget/container/row :
+
+
+
+(defclass widget/separator (widget)
+  ((size :initarg :size :initform 5 :accessor size :type fixnum)
+   )
+  )
+(defclass widget/separator/line (widget/separator)
+  ((weight :initarg :weight :initform 1 :accessor weight :type fixnum
+           :documentation "Weight of the drawn line")
+   )
+  )
+(defclass widget/separator/spacer (widget/separator) ())
+
 
 ;;; TODO define a container-push function
 
